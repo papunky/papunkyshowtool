@@ -16,6 +16,7 @@ A modern React application for radio show management at KXLU 88.9 FM. Upload pla
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
+- Claude API key from [Anthropic Console](https://console.anthropic.com/)
 
 ### Installation
 ```bash
@@ -26,11 +27,30 @@ cd papunky
 # Install dependencies
 npm install
 
+# Configure API key
+cp .env.example .env
+# Edit .env and add your Claude API key:
+# VITE_CLAUDE_API_KEY=sk-ant-api03-your-key-here
+
 # Start development server
 npm run dev
 ```
 
 Visit `http://localhost:3000` to see the application.
+
+### CSV Format
+Your Spotify playlist CSV should have columns for artist and track title. Supported column names:
+- `artist`, `Artist`, `Track Artist` - for artist names
+- `title`, `Title`, `Track Name`, `name` - for song titles
+
+Example CSV format:
+```csv
+artist,title,album,duration
+The Beatles,Hey Jude,The Beatles 1967-1970,7:11
+Bob Dylan,Like a Rolling Stone,Highway 61 Revisited,6:13
+```
+
+See `sample-playlist.csv` for a complete example.
 
 ### Development Commands
 ```bash

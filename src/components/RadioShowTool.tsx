@@ -109,12 +109,45 @@ const RadioShowTool: React.FC = () => {
 
   // Research a single track using Claude API with sources
   const researchTrack = async (artist: string, title: string): Promise<ResearchResult> => {
+    // Check if API key is available
+    const apiKey = import.meta.env.VITE_CLAUDE_API_KEY;
+    
+    if (!apiKey) {
+      console.warn('No Claude API key found. Skipping research for:', artist, title);
+      return {
+        releaseYear: "Unknown",
+        genre: "Unknown",
+        subGenre: "Unknown", 
+        region: "Unknown",
+        culturalContext: "API key not configured - add VITE_CLAUDE_API_KEY environment variable",
+        musicalFacts: "API key not configured - add VITE_CLAUDE_API_KEY environment variable",
+        globalConnections: "API key not configured - add VITE_CLAUDE_API_KEY environment variable",
+        talkingPoints: [
+          {
+            text: `${title} by ${artist}`,
+            sources: []
+          },
+          {
+            text: "Configure API key to enable automatic research",
+            sources: []
+          },
+          {
+            text: "Add your own talking points manually",
+            sources: []
+          }
+        ],
+        sources: []
+      };
+    }
+
     try {
       // First search for sources about the track
       const searchResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01"
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
@@ -138,7 +171,18 @@ Focus on reputable music sources like AllMusic, Discogs, Rolling Stone, music da
         })
       });
 
+      if (!searchResponse.ok) {
+        console.error('Search API failed:', searchResponse.status, searchResponse.statusText);
+        throw new Error(`API request failed: ${searchResponse.status}`);
+      }
+
       const searchData = await searchResponse.json();
+      
+      if (!searchData.content || !searchData.content[0] || !searchData.content[0].text) {
+        console.error('Invalid API response format:', searchData);
+        throw new Error('Invalid API response format');
+      }
+
       let sourcesText = searchData.content[0].text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       let sources: Array<{url: string; title: string; type: string}> = [];
       
@@ -156,6 +200,8 @@ Focus on reputable music sources like AllMusic, Discogs, Rolling Stone, music da
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01"
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
@@ -211,7 +257,18 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
         })
       });
 
+      if (!response.ok) {
+        console.error('Research API failed:', response.status, response.statusText);
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
       const data = await response.json();
+      
+      if (!data.content || !data.content[0] || !data.content[0].text) {
+        console.error('Invalid research API response format:', data);
+        throw new Error('Invalid API response format');
+      }
+
       let responseText = data.content[0].text;
       
       // Clean up any markdown formatting
@@ -253,8 +310,15 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
     if (!file) return;
 
     const text = await file.text();
-    const lines = text.split('\n');
+    const lines = text.split('\n').filter(line => line.trim()); // Remove empty lines
+    
+    if (lines.length < 2) {
+      alert('CSV file must have at least a header row and one data row.');
+      return;
+    }
+
     const headers = lines[0].split(',').map((h: string) => h.trim().replace(/"/g, ''));
+    console.log('CSV Headers found:', headers);
     
     const csvTracks: Record<string, string>[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -268,8 +332,15 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
       }
     }
 
+    console.log(`Parsed ${csvTracks.length} tracks from CSV`);
+
     if (csvTracks.length === 0) {
-      alert('No valid tracks found in CSV. Please ensure it has artist and title columns.');
+      alert(`No valid tracks found in CSV. 
+      
+Found headers: ${headers.join(', ')}
+
+Please ensure your CSV has columns for artist and title. 
+Common column names: artist, title, Artist, Title, Track Artist, Track Name, name`);
       return;
     }
 
@@ -290,6 +361,8 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
       const track = csvTracks[i];
       const artist = track.artist || track.Artist || track['Track Artist'] || '';
       const title = track.title || track.Title || track['Track Name'] || track.name || '';
+      
+      console.log(`Processing track ${i + 1}/${csvTracks.length}:`, { artist, title, trackData: track });
       
       if (artist && title) {
         setCurrentlyResearching(`${artist} - ${title}`);
@@ -338,6 +411,8 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
         if (i < csvTracks.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
+      } else {
+        console.warn(`Skipping track ${i + 1} - missing artist or title:`, { artist, title, trackData: track });
       }
     }
     
