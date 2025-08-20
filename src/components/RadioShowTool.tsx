@@ -1,5 +1,19 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Upload, Search, Play, Clock, Download, Globe, Music, Calendar, Eye, EyeOff, Plus, ArrowLeft, Radio } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { 
+  Upload, 
+  Search, 
+  Play, 
+  Clock, 
+  Download, 
+  Globe, 
+  Music, 
+  Calendar, 
+  Eye, 
+  EyeOff, 
+  Plus, 
+  ArrowLeft, 
+  Radio 
+} from 'lucide-react';
 
 // Type definitions
 interface Source {
@@ -52,14 +66,26 @@ interface Filters {
   genre: string;
   decade: string;
   region: string;
-  played: string;
+  played: 'all' | 'played' | 'unplayed';
 }
 
 interface ShowDetails {
   [key: string]: boolean;
 }
 
-const RadioShowTool = () => {
+interface ResearchResult {
+  releaseYear: string;
+  genre: string;
+  subGenre: string;
+  region: string;
+  culturalContext: string;
+  musicalFacts: string;
+  globalConnections: string;
+  talkingPoints: TalkingPoint[];
+  sources: Source[];
+}
+
+const RadioShowTool: React.FC = () => {
   const [shows, setShows] = useState<Show[]>([]);
   const [activeShowId, setActiveShowId] = useState<string | null>(null);
   const [playedTracks, setPlayedTracks] = useState<PlayedTracks>({});
@@ -70,7 +96,7 @@ const RadioShowTool = () => {
     played: 'all'
   });
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [activeView, setActiveView] = useState<string>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'showPrep' | 'showList'>('dashboard');
   const [isResearching, setIsResearching] = useState<boolean>(false);
   const [researchProgress, setResearchProgress] = useState<number>(0);
   const [currentlyResearching, setCurrentlyResearching] = useState<string>('');
@@ -82,7 +108,7 @@ const RadioShowTool = () => {
   const tracks = currentShow ? currentShow.tracks : [];
 
   // Research a single track using Claude API with sources
-  const researchTrack = async (artist: string, title: string): Promise<Omit<Track, 'id' | 'artist' | 'title' | 'originalData' | 'dateAdded'>> => {
+  const researchTrack = async (artist: string, title: string): Promise<ResearchResult> => {
     try {
       // First search for sources about the track
       const searchResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -114,7 +140,7 @@ Focus on reputable music sources like AllMusic, Discogs, Rolling Stone, music da
 
       const searchData = await searchResponse.json();
       let sourcesText = searchData.content[0].text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      let sources: Omit<Source, 'id'>[] = [];
+      let sources: Array<{url: string; title: string; type: string}> = [];
       
       try {
         sources = JSON.parse(sourcesText);
@@ -356,7 +382,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
       
       const matchesRegion = !filters.region || track.region.toLowerCase().includes(filters.region.toLowerCase());
       
-      const isPlayed = playedTracks[track.id];
+      const isPlayed = playedTracks[track.id]?.played;
       const matchesPlayed = filters.played === 'all' || 
         (filters.played === 'played' && isPlayed) ||
         (filters.played === 'unplayed' && !isPlayed);
@@ -366,7 +392,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
   }, [tracks, searchTerm, filters, playedTracks]);
 
   // Mark track as played
-  const markAsPlayed = (trackId: string) => {
+  const markAsPlayed = (trackId: string): void => {
     setPlayedTracks(prev => ({
       ...prev,
       [trackId]: {
@@ -377,7 +403,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
   };
 
   // Toggle track details visibility
-  const toggleTrackDetails = (trackId: string) => {
+  const toggleTrackDetails = (trackId: string): void => {
     setShowDetails(prev => ({
       ...prev,
       [trackId]: !prev[trackId]
@@ -385,7 +411,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
   };
 
   // Export data
-  const exportData = () => {
+  const exportData = (): void => {
     const exportObj = {
       shows,
       playedTracks,
@@ -405,10 +431,13 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
   // Get unique values for filters
   const uniqueGenres = [...new Set(tracks.map((t: Track) => t.genre))].filter(Boolean);
   const uniqueRegions = [...new Set(tracks.map((t: Track) => t.region))].filter(Boolean);
-  const uniqueDecades = [...new Set(tracks.map((t: Track) => Math.floor(parseInt(t.releaseYear) / 10) * 10))].filter((d: number) => !isNaN(d));
+  const uniqueDecades = [...new Set(tracks.map((t: Track) => {
+    const year = parseInt(t.releaseYear);
+    return isNaN(year) ? null : Math.floor(year / 10) * 10;
+  }))].filter((d): d is number => d !== null);
 
   // Render talking point with citations
-  const renderTalkingPoint = (point: TalkingPoint) => {
+  const renderTalkingPoint = (point: TalkingPoint): JSX.Element => {
     if (!point.sources || point.sources.length === 0) {
       return <span>{point.text}</span>;
     }
@@ -456,11 +485,14 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                 </div>
               ) : (
                 shows.map((show: Show) => (
-                  <div key={show.id} className="border border-gray-200 rounded-lg p-6 hover:bg-gray-50 cursor-pointer transition-colors"
-                       onClick={() => {
-                         setActiveShowId(show.id);
-                         setActiveView('showPrep');
-                       }}>
+                  <div 
+                    key={show.id} 
+                    className="border border-gray-200 rounded-lg p-6 hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setActiveShowId(show.id);
+                      setActiveView('showPrep');
+                    }}
+                  >
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">{show.name}</h3>
@@ -472,9 +504,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                       </div>
                       <div className="text-right">
                         <div className="text-sm text-gray-500">
-                          {Object.values(playedTracks).filter(() => 
-                            show.tracks.some((track: Track) => track.id in playedTracks)
-                          ).length} played
+                          {show.tracks.filter((track: Track) => playedTracks[track.id]?.played).length} played
                         </div>
                       </div>
                     </div>
@@ -624,7 +654,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                       <div className="ml-4">
                         <p className="text-sm font-medium text-gray-600">Played</p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {tracks.filter((track: Track) => playedTracks[track.id]).length}
+                          {tracks.filter((track: Track) => playedTracks[track.id]?.played).length}
                         </p>
                       </div>
                     </div>
@@ -702,7 +732,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                     
                     <select
                       value={filters.played}
-                      onChange={(e) => setFilters(prev => ({ ...prev, played: e.target.value }))}
+                      onChange={(e) => setFilters(prev => ({ ...prev, played: e.target.value as 'all' | 'played' | 'unplayed' }))}
                       className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">All Tracks</option>
@@ -857,7 +887,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                             
                             <button
                               onClick={() => markAsPlayed(track.id)}
-                              disabled={isPlayed}
+                              disabled={!!isPlayed}
                               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                                 isPlayed
                                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
