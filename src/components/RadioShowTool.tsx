@@ -33,6 +33,30 @@ interface Track {
   artist: string;
   title: string;
   originalData: Record<string, string>;
+  // Spotify data
+  trackUrl?: string;
+  albumName?: string;
+  releaseDate?: string;
+  duration?: string;
+  popularity?: string;
+  explicit?: string;
+  addedBy?: string;
+  addedAt?: string;
+  genres?: string;
+  recordLabel?: string;
+  danceability?: string;
+  energy?: string;
+  key?: string;
+  loudness?: string;
+  mode?: string;
+  speechiness?: string;
+  acousticness?: string;
+  instrumentalness?: string;
+  liveness?: string;
+  valence?: string;
+  tempo?: string;
+  timeSignature?: string;
+  // AI research data
   releaseYear: string;
   genre: string;
   subGenre: string;
@@ -296,12 +320,17 @@ Requirements:
     const csvTracks: Record<string, string>[] = [];
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map((v: string) => v.trim().replace(/"/g, ''));
-      if (values.length >= 2 && values[0] && values[1]) {
+      if (values.length >= headers.length) {
         const trackObj: Record<string, string> = {};
         headers.forEach((header: string, index: number) => {
           trackObj[header] = values[index] || '';
         });
-        csvTracks.push(trackObj);
+        // Only add if we have essential data (artist and track name)
+        const artist = trackObj['Artist Name'] || trackObj['artist'] || trackObj['Artist'] || '';
+        const title = trackObj['Track Name'] || trackObj['title'] || trackObj['Title'] || trackObj['name'] || '';
+        if (artist && title) {
+          csvTracks.push(trackObj);
+        }
       }
     }
 
@@ -313,7 +342,7 @@ Requirements:
 Found headers: ${headers.join(', ')}
 
 Please ensure your CSV has columns for artist and title. 
-Common column names: artist, title, Artist, Title, Track Artist, Track Name, name`);
+Looking for: Artist Name, Track Name (or artist, title, Artist, Title, Track Artist, name)`);
       return;
     }
 
@@ -332,8 +361,8 @@ Common column names: artist, title, Artist, Title, Track Artist, Track Name, nam
     
     for (let i = 0; i < csvTracks.length; i++) {
       const track = csvTracks[i];
-      const artist = track.artist || track.Artist || track['Track Artist'] || '';
-      const title = track.title || track.Title || track['Track Name'] || track.name || '';
+      const artist = track['Artist Name'] || track.artist || track.Artist || track['Track Artist'] || '';
+      const title = track['Track Name'] || track.title || track.Title || track.name || '';
       
       console.log(`Processing track ${i + 1}/${csvTracks.length}:`, { artist, title, trackData: track });
       
@@ -348,6 +377,29 @@ Common column names: artist, title, Artist, Title, Track Artist, Track Name, nam
             artist,
             title,
             originalData: track,
+            // Map Spotify data
+            trackUrl: track['Track URL'],
+            albumName: track['Album Name'],
+            releaseDate: track['Release Date'],
+            duration: track['Duration (ms)'],
+            popularity: track['Popularity'],
+            explicit: track['Explicit'],
+            addedBy: track['Added By'],
+            addedAt: track['Added At'],
+            genres: track['Genres'],
+            recordLabel: track['Record Label'],
+            danceability: track['Danceability'],
+            energy: track['Energy'],
+            key: track['Key'],
+            loudness: track['Loudness'],
+            mode: track['Mode'],
+            speechiness: track['Speechiness'],
+            acousticness: track['Acousticness'],
+            instrumentalness: track['Instrumentalness'],
+            liveness: track['Liveness'],
+            valence: track['Valence'],
+            tempo: track['Tempo'],
+            timeSignature: track['Time Signature'],
             ...research,
             dateAdded: new Date().toISOString()
           });
@@ -361,6 +413,29 @@ Common column names: artist, title, Artist, Title, Track Artist, Track Name, nam
             artist,
             title,
             originalData: track,
+            // Map Spotify data
+            trackUrl: track['Track URL'],
+            albumName: track['Album Name'],
+            releaseDate: track['Release Date'],
+            duration: track['Duration (ms)'],
+            popularity: track['Popularity'],
+            explicit: track['Explicit'],
+            addedBy: track['Added By'],
+            addedAt: track['Added At'],
+            genres: track['Genres'],
+            recordLabel: track['Record Label'],
+            danceability: track['Danceability'],
+            energy: track['Energy'],
+            key: track['Key'],
+            loudness: track['Loudness'],
+            mode: track['Mode'],
+            speechiness: track['Speechiness'],
+            acousticness: track['Acousticness'],
+            instrumentalness: track['Instrumentalness'],
+            liveness: track['Liveness'],
+            valence: track['Valence'],
+            tempo: track['Tempo'],
+            timeSignature: track['Time Signature'],
             releaseYear: "Unknown",
             genre: "Unknown",
             subGenre: "Unknown", 
@@ -867,6 +942,19 @@ Common column names: artist, title, Artist, Title, Track Artist, Track Name, nam
                               <span className="bg-gray-100 px-2 py-1 rounded">{track.genre}</span>
                               <span className="bg-gray-100 px-2 py-1 rounded">{track.releaseYear}</span>
                               <span className="bg-gray-100 px-2 py-1 rounded">{track.region}</span>
+                              {track.albumName && (
+                                <span className="bg-blue-100 px-2 py-1 rounded text-blue-700">{track.albumName}</span>
+                              )}
+                              {track.duration && (
+                                <span className="bg-green-100 px-2 py-1 rounded text-green-700">
+                                  {Math.round(parseInt(track.duration) / 1000 / 60 * 100) / 100}min
+                                </span>
+                              )}
+                              {track.popularity && (
+                                <span className="bg-purple-100 px-2 py-1 rounded text-purple-700">
+                                  {track.popularity}% popular
+                                </span>
+                              )}
                             </div>
                             
                             {/* Talking Points - Always visible in show prep mode */}
