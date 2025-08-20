@@ -2,11 +2,13 @@
 
 This guide will help you set up Google Gemini API access for your radio show management tool. Gemini is often more cost-effective and easier to set up than other AI APIs.
 
-## Why Google Gemini?
+## Why Google Gemini 2.0 Flash?
 
+✅ **Latest AI Model**: Most advanced Gemini model with improved reasoning  
 ✅ **More Cost-Effective**: Often 10-20x cheaper than other APIs  
 ✅ **Easy Setup**: Simple API key generation process  
-✅ **Fast Performance**: Quick response times for track research  
+✅ **Superior Performance**: Faster and more accurate than previous versions  
+✅ **Enhanced Research**: Better at finding and citing reliable sources  
 ✅ **No Separate Billing**: Uses your existing Google account  
 
 ## Step 1: Get Your Gemini API Key
@@ -67,7 +69,7 @@ You should see:
 
 ## Pricing (Very Affordable!)
 
-### Gemini 1.5 Flash Pricing:
+### Gemini 2.0 Flash Pricing:
 - **Input**: $0.075 per million tokens
 - **Output**: $0.30 per million tokens
 

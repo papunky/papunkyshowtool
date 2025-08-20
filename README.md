@@ -5,7 +5,7 @@ A modern React application for radio show management at KXLU 88.9 FM. Upload pla
 ## Features
 
 - 📁 **CSV Playlist Upload**: Import show playlists with artist and track information
-- 🤖 **AI-Powered Research**: Automatic track research using Claude API with source citations
+- 🤖 **AI-Powered Research**: Automatic track research using Google Gemini 2.0 Flash with source citations
 - 🎙️ **Show Prep Mode**: Clean interface optimized for live radio broadcasts
 - 📊 **Track Management**: Filter by genre, decade, region, and played status
 - 🗂️ **Multi-Show Support**: Manage multiple radio shows and their playlists
@@ -88,7 +88,7 @@ npm run build
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
-- **AI Integration**: Claude API for track research
+- **AI Integration**: Google Gemini 2.0 Flash for track research
 - **Deployment**: Vercel
 
 ## Contributing
