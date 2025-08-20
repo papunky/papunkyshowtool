@@ -7,7 +7,9 @@
       "Bash(git push:*)",
       "Bash(npm run type-check:*)",
       "Bash(npm install)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(touch:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
