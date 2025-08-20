@@ -326,7 +326,7 @@ Requirements:
           trackObj[header] = values[index] || '';
         });
         // Only add if we have essential data (artist and track name)
-        const artist = trackObj['Artist Name'] || trackObj['artist'] || trackObj['Artist'] || '';
+        const artist = trackObj['Artist Name(s)'] || trackObj['Artist Name'] || trackObj['artist'] || trackObj['Artist'] || '';
         const title = trackObj['Track Name'] || trackObj['title'] || trackObj['Title'] || trackObj['name'] || '';
         if (artist && title) {
           csvTracks.push(trackObj);
@@ -342,7 +342,7 @@ Requirements:
 Found headers: ${headers.join(', ')}
 
 Please ensure your CSV has columns for artist and title. 
-Looking for: Artist Name, Track Name (or artist, title, Artist, Title, Track Artist, name)`);
+Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, Title, Track Artist, name)`);
       return;
     }
 
@@ -361,7 +361,7 @@ Looking for: Artist Name, Track Name (or artist, title, Artist, Title, Track Art
     
     for (let i = 0; i < csvTracks.length; i++) {
       const track = csvTracks[i];
-      const artist = track['Artist Name'] || track.artist || track.Artist || track['Track Artist'] || '';
+      const artist = track['Artist Name(s)'] || track['Artist Name'] || track.artist || track.Artist || track['Track Artist'] || '';
       const title = track['Track Name'] || track.title || track.Title || track.name || '';
       
       console.log(`Processing track ${i + 1}/${csvTracks.length}:`, { artist, title, trackData: track });
