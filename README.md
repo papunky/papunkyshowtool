@@ -16,7 +16,7 @@ A modern React application for radio show management at KXLU 88.9 FM. Upload pla
 ### Prerequisites
 - Node.js 18+ 
 - npm or yarn
-- Claude API key from [Anthropic Console](https://console.anthropic.com/)
+- Google Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 ### Installation
 ```bash
@@ -29,8 +29,8 @@ npm install
 
 # Configure API key
 cp .env.example .env
-# Edit .env and add your Claude API key:
-# VITE_CLAUDE_API_KEY=sk-ant-api03-your-key-here
+# Edit .env and add your Gemini API key:
+# VITE_GEMINI_API_KEY=your-gemini-api-key-here
 
 # Start development server
 npm run dev

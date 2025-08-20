@@ -107,28 +107,28 @@ const RadioShowTool: React.FC = () => {
   const currentShow = shows.find(show => show.id === activeShowId);
   const tracks = currentShow ? currentShow.tracks : [];
 
-  // Research a single track using Claude API with sources
+  // Research a single track using Google Gemini API
   const researchTrack = async (artist: string, title: string): Promise<ResearchResult> => {
     // Check if API key is available
-    const apiKey = import.meta.env.VITE_CLAUDE_API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     
     if (!apiKey) {
-      console.warn('No Claude API key found. Skipping research for:', artist, title);
+      console.warn('No Gemini API key found. Skipping research for:', artist, title);
       return {
         releaseYear: "Unknown",
         genre: "Unknown",
         subGenre: "Unknown", 
         region: "Unknown",
-        culturalContext: "API key not configured - add VITE_CLAUDE_API_KEY environment variable",
-        musicalFacts: "API key not configured - add VITE_CLAUDE_API_KEY environment variable",
-        globalConnections: "API key not configured - add VITE_CLAUDE_API_KEY environment variable",
+        culturalContext: "API key not configured - add VITE_GEMINI_API_KEY environment variable",
+        musicalFacts: "API key not configured - add VITE_GEMINI_API_KEY environment variable",
+        globalConnections: "API key not configured - add VITE_GEMINI_API_KEY environment variable",
         talkingPoints: [
           {
             text: `${title} by ${artist}`,
             sources: []
           },
           {
-            text: "Configure API key to enable automatic research",
+            text: "Configure Gemini API key to enable automatic research",
             sources: []
           },
           {
@@ -141,138 +141,111 @@ const RadioShowTool: React.FC = () => {
     }
 
     try {
-      // First search for sources about the track
-      const searchResponse = await fetch("https://api.anthropic.com/v1/messages", {
+      // Combined research request to Gemini API
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01"
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 600,
-          messages: [
-            {
-              role: "user",
-              content: `Search for information about the song "${title}" by ${artist}. Find reliable sources with facts about the release year, genre, cultural background, and interesting details. Respond with only a JSON array of source objects:
+          contents: [{
+            parts: [{
+              text: `Research the song "${title}" by ${artist}. Provide comprehensive information for radio show preparation.
 
-[
-  {
-    "url": "source URL",
-    "title": "source title",
-    "type": "music database/encyclopedia/magazine/etc"
-  }
-]
-
-Focus on reputable music sources like AllMusic, Discogs, Rolling Stone, music databases, etc. Maximum 3 sources. Your entire response must be valid JSON only.`
-            }
-          ]
-        })
-      });
-
-      if (!searchResponse.ok) {
-        console.error('Search API failed:', searchResponse.status, searchResponse.statusText);
-        throw new Error(`API request failed: ${searchResponse.status}`);
-      }
-
-      const searchData = await searchResponse.json();
-      
-      if (!searchData.content || !searchData.content[0] || !searchData.content[0].text) {
-        console.error('Invalid API response format:', searchData);
-        throw new Error('Invalid API response format');
-      }
-
-      let sourcesText = searchData.content[0].text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      let sources: Array<{url: string; title: string; type: string}> = [];
-      
-      try {
-        sources = JSON.parse(sourcesText);
-      } catch (e) {
-        sources = [
-          {url: "https://allmusic.com", title: "AllMusic Database", type: "music database"},
-          {url: "https://discogs.com", title: "Discogs", type: "music database"}
-        ];
-      }
-
-      // Now research the track with source citations
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01"
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 800,
-          messages: [
-            {
-              role: "user",
-              content: `Research the song "${title}" by ${artist}. Use these sources for reference: ${JSON.stringify(sources)}
-
-Provide information in this exact JSON format:
+Respond with ONLY a valid JSON object in this exact format:
 
 {
   "releaseYear": "YYYY",
   "genre": "primary genre",
   "subGenre": "specific subgenre",
   "region": "country/region of origin",
-  "culturalContext": "brief cultural background",
+  "culturalContext": "brief cultural background and historical context",
   "musicalFacts": "interesting musical or production details",
   "globalConnections": "connections to cross-cultural fusion or global music trends",
   "talkingPoints": [
     {
-      "text": "concise radio-ready fact 1",
+      "text": "concise radio-ready fact 1 (under 25 words)",
       "sources": [1]
     },
     {
-      "text": "concise radio-ready fact 2", 
+      "text": "concise radio-ready fact 2 (under 25 words)", 
       "sources": [1, 2]
     },
     {
-      "text": "concise radio-ready fact 3",
+      "text": "concise radio-ready fact 3 (under 25 words)",
       "sources": [2]
     }
   ],
   "sources": [
     {
       "id": 1,
-      "url": "source URL",
+      "url": "reliable source URL",
       "title": "source title",
-      "type": "source type"
+      "type": "music database/encyclopedia/magazine"
     },
     {
       "id": 2, 
-      "url": "source URL",
+      "url": "reliable source URL",
       "title": "source title",
-      "type": "source type"
+      "type": "music database/encyclopedia/magazine"
     }
   ]
 }
 
-Keep talking points under 25 words each. Reference sources by ID numbers in the sources array. Make them engaging for radio. Your entire response MUST be valid JSON only.`
+Requirements:
+- Keep talking points under 25 words each and make them engaging for radio
+- Include 2-3 reliable sources (AllMusic, Discogs, Rolling Stone, etc.)
+- Focus on interesting facts that radio DJs can use
+- Your response must be valid JSON only, no other text`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            topK: 1,
+            topP: 1,
+            maxOutputTokens: 1000,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
             }
           ]
         })
       });
 
       if (!response.ok) {
-        console.error('Research API failed:', response.status, response.statusText);
+        console.error('Gemini API failed:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error details:', errorText);
         throw new Error(`API request failed: ${response.status}`);
       }
 
       const data = await response.json();
       
-      if (!data.content || !data.content[0] || !data.content[0].text) {
-        console.error('Invalid research API response format:', data);
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+        console.error('Invalid Gemini API response format:', data);
         throw new Error('Invalid API response format');
       }
 
-      let responseText = data.content[0].text;
+      let responseText = data.candidates[0].content.parts[0].text;
       
       // Clean up any markdown formatting
       responseText = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      
+      console.log('Gemini response for', artist, title, ':', responseText);
       
       return JSON.parse(responseText);
     } catch (error) {
