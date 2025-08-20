@@ -1,30 +1,88 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { Upload, Search, Filter, Play, Clock, Download, Edit3, Globe, Music, Calendar, Eye, EyeOff, Plus, ArrowLeft, Radio } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { Upload, Search, Play, Clock, Download, Globe, Music, Calendar, Eye, EyeOff, Plus, ArrowLeft, Radio } from 'lucide-react';
+
+// Type definitions
+interface Source {
+  id: number;
+  url: string;
+  title: string;
+  type: string;
+}
+
+interface TalkingPoint {
+  text: string;
+  sources: number[];
+}
+
+interface Track {
+  id: string;
+  artist: string;
+  title: string;
+  originalData: Record<string, string>;
+  releaseYear: string;
+  genre: string;
+  subGenre: string;
+  region: string;
+  culturalContext: string;
+  musicalFacts: string;
+  globalConnections: string;
+  talkingPoints: TalkingPoint[];
+  sources: Source[];
+  dateAdded: string;
+}
+
+interface Show {
+  id: string;
+  name: string;
+  date: string;
+  fileName: string;
+  tracks: Track[];
+}
+
+interface PlayedTrack {
+  played: boolean;
+  timestamp: string;
+}
+
+interface PlayedTracks {
+  [key: string]: PlayedTrack;
+}
+
+interface Filters {
+  genre: string;
+  decade: string;
+  region: string;
+  played: string;
+}
+
+interface ShowDetails {
+  [key: string]: boolean;
+}
 
 const RadioShowTool = () => {
-  const [shows, setShows] = useState([]);
-  const [activeShowId, setActiveShowId] = useState(null);
-  const [playedTracks, setPlayedTracks] = useState({});
-  const [filters, setFilters] = useState({
+  const [shows, setShows] = useState<Show[]>([]);
+  const [activeShowId, setActiveShowId] = useState<string | null>(null);
+  const [playedTracks, setPlayedTracks] = useState<PlayedTracks>({});
+  const [filters, setFilters] = useState<Filters>({
     genre: '',
     decade: '',
     region: '',
     played: 'all'
   });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeView, setActiveView] = useState('dashboard');
-  const [isResearching, setIsResearching] = useState(false);
-  const [researchProgress, setResearchProgress] = useState(0);
-  const [currentlyResearching, setCurrentlyResearching] = useState('');
-  const [researchErrors, setResearchErrors] = useState([]);
-  const [showDetails, setShowDetails] = useState({});
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [activeView, setActiveView] = useState<string>('dashboard');
+  const [isResearching, setIsResearching] = useState<boolean>(false);
+  const [researchProgress, setResearchProgress] = useState<number>(0);
+  const [currentlyResearching, setCurrentlyResearching] = useState<string>('');
+  const [researchErrors, setResearchErrors] = useState<string[]>([]);
+  const [showDetails, setShowDetails] = useState<ShowDetails>({});
 
   // Get current show data
   const currentShow = shows.find(show => show.id === activeShowId);
   const tracks = currentShow ? currentShow.tracks : [];
 
   // Research a single track using Claude API with sources
-  const researchTrack = async (artist, title) => {
+  const researchTrack = async (artist: string, title: string): Promise<Omit<Track, 'id' | 'artist' | 'title' | 'originalData' | 'dateAdded'>> => {
     try {
       // First search for sources about the track
       const searchResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -56,7 +114,7 @@ Focus on reputable music sources like AllMusic, Discogs, Rolling Stone, music da
 
       const searchData = await searchResponse.json();
       let sourcesText = searchData.content[0].text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      let sources = [];
+      let sources: Omit<Source, 'id'>[] = [];
       
       try {
         sources = JSON.parse(sourcesText);
@@ -164,20 +222,20 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
   };
 
   // Parse CSV and research tracks
-  const handleFileUpload = useCallback(async (event) => {
-    const file = event.target.files[0];
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     const text = await file.text();
     const lines = text.split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const headers = lines[0].split(',').map((h: string) => h.trim().replace(/"/g, ''));
     
-    const csvTracks = [];
+    const csvTracks: Record<string, string>[] = [];
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+      const values = lines[i].split(',').map((v: string) => v.trim().replace(/"/g, ''));
       if (values.length >= 2 && values[0] && values[1]) {
-        const trackObj = {};
-        headers.forEach((header, index) => {
+        const trackObj: Record<string, string> = {};
+        headers.forEach((header: string, index: number) => {
           trackObj[header] = values[index] || '';
         });
         csvTracks.push(trackObj);
@@ -199,8 +257,8 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
     setCurrentlyResearching('');
     setResearchErrors([]);
     
-    const researchedTracks = [];
-    const errors = [];
+    const researchedTracks: Track[] = [];
+    const errors: string[] = [];
     
     for (let i = 0; i < csvTracks.length; i++) {
       const track = csvTracks[i];
@@ -259,7 +317,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
     
     setResearchErrors(errors);
     
-    const newShow = {
+    const newShow: Show = {
       id: showId,
       name: showName,
       date: new Date().toISOString(),
@@ -285,7 +343,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
 
   // Filter and search tracks
   const filteredTracks = useMemo(() => {
-    return tracks.filter(track => {
+    return tracks.filter((track: Track) => {
       const matchesSearch = !searchTerm || 
         track.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
         track.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -308,7 +366,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
   }, [tracks, searchTerm, filters, playedTracks]);
 
   // Mark track as played
-  const markAsPlayed = (trackId) => {
+  const markAsPlayed = (trackId: string) => {
     setPlayedTracks(prev => ({
       ...prev,
       [trackId]: {
@@ -319,7 +377,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
   };
 
   // Toggle track details visibility
-  const toggleTrackDetails = (trackId) => {
+  const toggleTrackDetails = (trackId: string) => {
     setShowDetails(prev => ({
       ...prev,
       [trackId]: !prev[trackId]
@@ -345,12 +403,12 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
   };
 
   // Get unique values for filters
-  const uniqueGenres = [...new Set(tracks.map(t => t.genre))].filter(Boolean);
-  const uniqueRegions = [...new Set(tracks.map(t => t.region))].filter(Boolean);
-  const uniqueDecades = [...new Set(tracks.map(t => Math.floor(parseInt(t.releaseYear) / 10) * 10))].filter(d => !isNaN(d));
+  const uniqueGenres = [...new Set(tracks.map((t: Track) => t.genre))].filter(Boolean);
+  const uniqueRegions = [...new Set(tracks.map((t: Track) => t.region))].filter(Boolean);
+  const uniqueDecades = [...new Set(tracks.map((t: Track) => Math.floor(parseInt(t.releaseYear) / 10) * 10))].filter((d: number) => !isNaN(d));
 
   // Render talking point with citations
-  const renderTalkingPoint = (point) => {
+  const renderTalkingPoint = (point: TalkingPoint) => {
     if (!point.sources || point.sources.length === 0) {
       return <span>{point.text}</span>;
     }
@@ -358,7 +416,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
     return (
       <span>
         {point.text}
-        {point.sources.map((sourceId, index) => (
+        {point.sources.map((sourceId: number) => (
           <sup key={sourceId} className="text-blue-600 ml-0.5">
             [{sourceId}]
           </sup>
@@ -397,7 +455,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                   <p>No shows created yet. Upload a playlist to get started!</p>
                 </div>
               ) : (
-                shows.map((show) => (
+                shows.map((show: Show) => (
                   <div key={show.id} className="border border-gray-200 rounded-lg p-6 hover:bg-gray-50 cursor-pointer transition-colors"
                        onClick={() => {
                          setActiveShowId(show.id);
@@ -414,8 +472,8 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                       </div>
                       <div className="text-right">
                         <div className="text-sm text-gray-500">
-                          {Object.values(playedTracks).filter(p => 
-                            show.tracks.some(track => track.id in playedTracks)
+                          {Object.values(playedTracks).filter(() => 
+                            show.tracks.some((track: Track) => track.id in playedTracks)
                           ).length} played
                         </div>
                       </div>
@@ -532,7 +590,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                 ⚠️ Some tracks couldn't be researched automatically:
               </h4>
               <div className="text-xs text-yellow-700 space-y-1">
-                {researchErrors.map((track, index) => (
+                {researchErrors.map((track: string, index: number) => (
                   <div key={index}>• {track}</div>
                 ))}
               </div>
@@ -566,7 +624,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                       <div className="ml-4">
                         <p className="text-sm font-medium text-gray-600">Played</p>
                         <p className="text-2xl font-bold text-gray-900">
-                          {tracks.filter(track => playedTracks[track.id]).length}
+                          {tracks.filter((track: Track) => playedTracks[track.id]).length}
                         </p>
                       </div>
                     </div>
@@ -615,7 +673,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                       className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">All Genres</option>
-                      {uniqueGenres.map(genre => (
+                      {uniqueGenres.map((genre: string) => (
                         <option key={genre} value={genre}>{genre}</option>
                       ))}
                     </select>
@@ -626,8 +684,8 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                       className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">All Decades</option>
-                      {uniqueDecades.sort((a, b) => b - a).map(decade => (
-                        <option key={decade} value={decade}>{decade}s</option>
+                      {uniqueDecades.sort((a: number, b: number) => b - a).map((decade: number) => (
+                        <option key={decade} value={decade.toString()}>{decade}s</option>
                       ))}
                     </select>
                     
@@ -637,7 +695,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                       className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">All Regions</option>
-                      {uniqueRegions.map(region => (
+                      {uniqueRegions.map((region: string) => (
                         <option key={region} value={region}>{region}</option>
                       ))}
                     </select>
@@ -703,8 +761,8 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                     )}
                   </div>
                 ) : (
-                  filteredTracks.map((track) => {
-                    const isPlayed = playedTracks[track.id];
+                  filteredTracks.map((track: Track) => {
+                    const isPlayed = playedTracks[track.id]?.played;
                     const showDetail = showDetails[track.id];
                     
                     return (
@@ -739,7 +797,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                                 <div className="bg-blue-50 p-4 rounded-lg">
                                   <h4 className="font-medium text-blue-900 mb-3">🎙️ Radio Talking Points</h4>
                                   <ul className="space-y-2">
-                                    {track.talkingPoints.map((point, index) => (
+                                    {track.talkingPoints.map((point: TalkingPoint, index: number) => (
                                       <li key={index} className="text-blue-800 text-sm">
                                         • {renderTalkingPoint(point)}
                                       </li>
@@ -751,7 +809,7 @@ Keep talking points under 25 words each. Reference sources by ID numbers in the 
                                     <div className="mt-4 pt-3 border-t border-blue-200">
                                       <h5 className="text-xs font-medium text-blue-700 mb-2">Sources:</h5>
                                       <div className="space-y-1">
-                                        {track.sources.map((source) => (
+                                        {track.sources.map((source: Source) => (
                                           <div key={source.id} className="text-xs text-blue-600">
                                             [{source.id}] {source.title} - {source.type}
                                             <br />
