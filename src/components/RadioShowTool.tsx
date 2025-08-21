@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   Upload, 
   Search, 
@@ -125,9 +125,28 @@ const isValidGenreText = (genreString: string | undefined): boolean => {
 };
 
 const RadioShowTool: React.FC = () => {
-  const [shows, setShows] = useState<Show[]>([]);
-  const [activeShowId, setActiveShowId] = useState<string | null>(null);
-  const [playedTracks, setPlayedTracks] = useState<PlayedTracks>({});
+  const [shows, setShows] = useState<Show[]>(() => {
+    // Load shows from localStorage on component mount
+    try {
+      const savedShows = localStorage.getItem('kxlu-radio-shows');
+      return savedShows ? JSON.parse(savedShows) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [activeShowId, setActiveShowId] = useState<string | null>(() => {
+    // Load active show ID from localStorage
+    return localStorage.getItem('kxlu-active-show-id');
+  });
+  const [playedTracks, setPlayedTracks] = useState<PlayedTracks>(() => {
+    // Load played tracks from localStorage
+    try {
+      const savedPlayedTracks = localStorage.getItem('kxlu-played-tracks');
+      return savedPlayedTracks ? JSON.parse(savedPlayedTracks) : {};
+    } catch {
+      return {};
+    }
+  });
   const [filters, setFilters] = useState<Filters>({
     genre: '',
     decade: '',
@@ -142,12 +161,29 @@ const RadioShowTool: React.FC = () => {
   const [researchErrors, setResearchErrors] = useState<string[]>([]);
   const [showDetails, setShowDetails] = useState<ShowDetails>({});
 
+  // Save data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('kxlu-radio-shows', JSON.stringify(shows));
+  }, [shows]);
+
+  useEffect(() => {
+    if (activeShowId) {
+      localStorage.setItem('kxlu-active-show-id', activeShowId);
+    } else {
+      localStorage.removeItem('kxlu-active-show-id');
+    }
+  }, [activeShowId]);
+
+  useEffect(() => {
+    localStorage.setItem('kxlu-played-tracks', JSON.stringify(playedTracks));
+  }, [playedTracks]);
+
   // Get current show data
   const currentShow = shows.find(show => show.id === activeShowId);
   const tracks = currentShow ? currentShow.tracks : [];
 
-  // Research a single track using Google Gemini API
-  const researchTrack = async (artist: string, title: string): Promise<ResearchResult> => {
+  // Research a single track using Google Gemini API with retry logic
+  const researchTrack = async (artist: string, title: string, retryCount = 0): Promise<ResearchResult> => {
     // Check if API key is available
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     
@@ -269,7 +305,16 @@ Requirements:
         console.error('Gemini API failed:', response.status, response.statusText);
         const errorText = await response.text();
         console.error('Error details:', errorText);
-        throw new Error(`API request failed: ${response.status}`);
+        
+        // Retry logic for rate limiting and temporary errors
+        if ((response.status === 429 || response.status >= 500) && retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+          console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return researchTrack(artist, title, retryCount + 1);
+        }
+        
+        throw new Error(`API request failed: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -472,9 +517,9 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
         
         setResearchProgress(((i + 1) / csvTracks.length) * 100);
         
-        // Small delay to prevent overwhelming the API
+        // Longer delay to prevent overwhelming the API and hitting rate limits
         if (i < csvTracks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Increased to 2 seconds
         }
       } else {
         console.warn(`Skipping track ${i + 1} - missing artist or title:`, { artist, title, trackData: track });
@@ -569,6 +614,18 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
     link.download = `kxlu-radio-data-${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Clear all data (for testing/reset)
+  const clearAllData = (): void => {
+    if (confirm('Are you sure you want to clear all show data? This cannot be undone.')) {
+      localStorage.removeItem('kxlu-radio-shows');
+      localStorage.removeItem('kxlu-active-show-id');
+      localStorage.removeItem('kxlu-played-tracks');
+      setShows([]);
+      setActiveShowId(null);
+      setPlayedTracks({});
+    }
   };
 
   // Get unique values for filters
@@ -897,6 +954,14 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
                     >
                       <Download className="h-4 w-4" />
                       Export
+                    </button>
+                    
+                    <button
+                      onClick={clearAllData}
+                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-2"
+                      title="Clear all data (for testing)"
+                    >
+                      Clear Data
                     </button>
                   </div>
                 </div>
