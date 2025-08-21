@@ -124,6 +124,17 @@ const isValidGenreText = (genreString: string | undefined): boolean => {
   return /[a-zA-Z]/.test(genreString);
 };
 
+// Debug function to log environment and API status
+const debugAPIStatus = () => {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  console.log('🔍 API Debug Status:');
+  console.log('- API Key present:', !!apiKey);
+  console.log('- API Key length:', apiKey ? apiKey.length : 0);
+  console.log('- API Key starts with:', apiKey ? apiKey.substring(0, 10) + '...' : 'N/A');
+  console.log('- Environment:', import.meta.env.MODE);
+  console.log('- All env vars:', Object.keys(import.meta.env));
+};
+
 const RadioShowTool: React.FC = () => {
   const [shows, setShows] = useState<Show[]>(() => {
     // Load shows from localStorage on component mount
@@ -184,11 +195,13 @@ const RadioShowTool: React.FC = () => {
 
   // Research a single track using Google Gemini API with retry logic
   const researchTrack = async (artist: string, title: string, retryCount = 0): Promise<ResearchResult> => {
+    console.log(`🔍 Starting research for: "${title}" by ${artist} (attempt ${retryCount + 1})`);
+    
     // Check if API key is available
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     
     if (!apiKey) {
-      console.warn('No Gemini API key found. Skipping research for:', artist, title);
+      console.error('❌ No Gemini API key found. Skipping research for:', artist, title);
       return {
         releaseYear: "Unknown",
         genre: "Unknown",
@@ -216,8 +229,9 @@ const RadioShowTool: React.FC = () => {
     }
 
     try {
-      // Combined research request to Gemini 2.5 Flash API
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+      console.log(`📡 Making API request for: ${artist} - ${title}`);
+      // Use the stable Gemini 1.5 Flash model instead of experimental
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -301,15 +315,17 @@ Requirements:
         })
       });
 
+      console.log(`📊 API Response Status: ${response.status}`);
+      
       if (!response.ok) {
-        console.error('Gemini API failed:', response.status, response.statusText);
+        console.error(`❌ Gemini API failed for "${title}" by ${artist}:`, response.status, response.statusText);
         const errorText = await response.text();
-        console.error('Error details:', errorText);
+        console.error('🔍 Full error details:', errorText);
         
         // Retry logic for rate limiting and temporary errors
         if ((response.status === 429 || response.status >= 500) && retryCount < 3) {
           const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
-          console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`);
+          console.log(`⏰ Retrying in ${delay}ms... (attempt ${retryCount + 1}/3) for ${artist} - ${title}`);
           await new Promise(resolve => setTimeout(resolve, delay));
           return researchTrack(artist, title, retryCount + 1);
         }
@@ -318,22 +334,32 @@ Requirements:
       }
 
       const data = await response.json();
+      console.log(`📦 Raw API response for "${title}" by ${artist}:`, JSON.stringify(data, null, 2));
       
       if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-        console.error('Invalid Gemini API response format:', data);
+        console.error(`❌ Invalid Gemini API response format for "${title}" by ${artist}:`, data);
         throw new Error('Invalid API response format');
       }
 
       let responseText = data.candidates[0].content.parts[0].text;
+      console.log(`📝 Raw response text for "${title}" by ${artist}:`, responseText);
       
       // Clean up any markdown formatting
       responseText = responseText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      console.log(`🧹 Cleaned response text for "${title}" by ${artist}:`, responseText);
       
-      console.log('Gemini response for', artist, title, ':', responseText);
+      const parsedResult = JSON.parse(responseText);
+      console.log(`✅ Successfully parsed result for "${title}" by ${artist}:`, parsedResult);
       
-      return JSON.parse(responseText);
+      return parsedResult;
     } catch (error) {
-      console.error('Research failed for:', artist, title, error);
+      console.error(`💥 Research completely failed for "${title}" by ${artist}:`, error);
+      
+      // If it's a JSON parse error, log the response text that failed
+      if (error instanceof SyntaxError) {
+        console.error(`🔍 JSON Parse Error - this usually means the API returned non-JSON content`);
+      }
+      
       return {
         releaseYear: "Unknown",
         genre: "Unknown",
@@ -394,7 +420,10 @@ Requirements:
       }
     }
 
-    console.log(`Parsed ${csvTracks.length} tracks from CSV`);
+    console.log(`📊 Parsed ${csvTracks.length} tracks from CSV`);
+    
+    // Debug API status before starting research
+    debugAPIStatus();
 
     if (csvTracks.length === 0) {
       alert(`No valid tracks found in CSV. 
@@ -424,13 +453,15 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
       const artist = track['Artist Name(s)'] || track['Artist Name'] || track.artist || track.Artist || track['Track Artist'] || '';
       const title = track['Track Name'] || track.title || track.Title || track.name || '';
       
-      console.log(`Processing track ${i + 1}/${csvTracks.length}:`, { artist, title, trackData: track });
+      console.log(`🎵 Processing track ${i + 1}/${csvTracks.length}:`, { artist, title, trackData: track });
       
       if (artist && title) {
         setCurrentlyResearching(`${artist} - ${title}`);
+        console.log(`🔬 About to research: "${title}" by ${artist}`);
         
         try {
           const research = await researchTrack(artist, title);
+          console.log(`✅ Research completed for "${title}" by ${artist}:`, research);
           
           researchedTracks.push({
             id: `${artist}-${title}-${Date.now()}-${i}`,
@@ -465,7 +496,7 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
             dateAdded: new Date().toISOString()
           });
         } catch (error) {
-          console.error('Failed to research track:', artist, title, error);
+          console.error(`💥 Failed to research track: "${title}" by ${artist}:`, error);
           errors.push(`${artist} - ${title}`);
           
           // Add track with minimal data if research fails
