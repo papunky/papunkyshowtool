@@ -110,6 +110,20 @@ interface ResearchResult {
   sources: Source[];
 }
 
+// Helper function to validate if a genre string contains actual text genres
+const isValidGenreText = (genreString: string | undefined): boolean => {
+  if (!genreString || genreString.trim() === '') return false;
+  
+  // Check if it's purely numerical
+  if (/^\d+(\.\d+)?$/.test(genreString.trim())) return false;
+  
+  // Check if it contains only numbers, commas, and spaces
+  if (/^[\d\s,\.]+$/.test(genreString)) return false;
+  
+  // Must contain at least one letter to be considered a valid genre
+  return /[a-zA-Z]/.test(genreString);
+};
+
 const RadioShowTool: React.FC = () => {
   const [shows, setShows] = useState<Show[]>([]);
   const [activeShowId, setActiveShowId] = useState<string | null>(null);
@@ -388,7 +402,7 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
             addedBy: track['Added By'],
             addedAt: track['Added At'],
             genres: track['Genres'],
-            csvGenres: track['Genres'], // Store CSV genres separately
+            csvGenres: isValidGenreText(track['Genres']) ? track['Genres'] : undefined, // Only store valid text genres
             recordLabel: track['Record Label'],
             danceability: track['Danceability'],
             energy: track['Energy'],
@@ -425,7 +439,7 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
             addedBy: track['Added By'],
             addedAt: track['Added At'],
             genres: track['Genres'],
-            csvGenres: track['Genres'], // Store CSV genres separately
+            csvGenres: isValidGenreText(track['Genres']) ? track['Genres'] : undefined, // Only store valid text genres
             recordLabel: track['Record Label'],
             danceability: track['Danceability'],
             energy: track['Energy'],
@@ -560,7 +574,11 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
   // Get unique values for filters
   const uniqueGenres = [...new Set([
     ...tracks.map((t: Track) => t.genre),
-    ...tracks.flatMap((t: Track) => t.csvGenres ? t.csvGenres.split(',').map(g => g.trim()) : [])
+    ...tracks.flatMap((t: Track) => 
+      t.csvGenres && isValidGenreText(t.csvGenres) 
+        ? t.csvGenres.split(',').map(g => g.trim()).filter(g => isValidGenreText(g))
+        : []
+    )
   ])].filter(Boolean);
   const uniqueRegions = [...new Set(tracks.map((t: Track) => t.region))].filter(Boolean);
   const uniqueDecades = [...new Set(tracks.map((t: Track) => {
