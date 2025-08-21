@@ -58,8 +58,9 @@ interface Track {
   timeSignature?: string;
   // AI research data
   releaseYear: string;
-  genre: string;
-  subGenre: string;
+  genre: string; // AI-researched overarching genre
+  subGenre: string; // AI-researched subgenre
+  csvGenres?: string; // Spotify-provided specific subgenres
   region: string;
   culturalContext: string;
   musicalFacts: string;
@@ -387,6 +388,7 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
             addedBy: track['Added By'],
             addedAt: track['Added At'],
             genres: track['Genres'],
+            csvGenres: track['Genres'], // Store CSV genres separately
             recordLabel: track['Record Label'],
             danceability: track['Danceability'],
             energy: track['Energy'],
@@ -423,6 +425,7 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
             addedBy: track['Added By'],
             addedAt: track['Added At'],
             genres: track['Genres'],
+            csvGenres: track['Genres'], // Store CSV genres separately
             recordLabel: track['Record Label'],
             danceability: track['Danceability'],
             energy: track['Energy'],
@@ -496,9 +499,12 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
       const matchesSearch = !searchTerm || 
         track.artist.toLowerCase().includes(searchTerm.toLowerCase()) ||
         track.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        track.genre.toLowerCase().includes(searchTerm.toLowerCase());
+        track.genre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (track.csvGenres && track.csvGenres.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      const matchesGenre = !filters.genre || track.genre.toLowerCase().includes(filters.genre.toLowerCase());
+      const matchesGenre = !filters.genre || 
+        track.genre.toLowerCase().includes(filters.genre.toLowerCase()) ||
+        (track.csvGenres && track.csvGenres.toLowerCase().includes(filters.genre.toLowerCase()));
       
       const trackDecade = Math.floor(parseInt(track.releaseYear) / 10) * 10;
       const matchesDecade = !filters.decade || trackDecade.toString() === filters.decade;
@@ -552,7 +558,10 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
   };
 
   // Get unique values for filters
-  const uniqueGenres = [...new Set(tracks.map((t: Track) => t.genre))].filter(Boolean);
+  const uniqueGenres = [...new Set([
+    ...tracks.map((t: Track) => t.genre),
+    ...tracks.flatMap((t: Track) => t.csvGenres ? t.csvGenres.split(',').map(g => g.trim()) : [])
+  ])].filter(Boolean);
   const uniqueRegions = [...new Set(tracks.map((t: Track) => t.region))].filter(Boolean);
   const uniqueDecades = [...new Set(tracks.map((t: Track) => {
     const year = parseInt(t.releaseYear);
@@ -939,7 +948,14 @@ Looking for: Artist Name(s), Track Name (or Artist Name, artist, title, Artist, 
                             </div>
                             
                             <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-4">
-                              <span className="bg-gray-100 px-2 py-1 rounded">{track.genre}</span>
+                              <span className="bg-indigo-100 px-2 py-1 rounded text-indigo-800 font-medium" title="AI-researched overarching genre">
+                                {track.genre}
+                              </span>
+                              {track.csvGenres && (
+                                <span className="bg-pink-100 px-2 py-1 rounded text-pink-800 text-xs" title="Spotify subgenres">
+                                  {track.csvGenres}
+                                </span>
+                              )}
                               <span className="bg-gray-100 px-2 py-1 rounded">{track.releaseYear}</span>
                               <span className="bg-gray-100 px-2 py-1 rounded">{track.region}</span>
                               {track.albumName && (
